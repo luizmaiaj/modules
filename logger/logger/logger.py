@@ -34,13 +34,29 @@ class Logger:
         
         Parameters:
         avatar (str): The avatar symbol to display next to the message.
-        message (str): The message to log.
+        txt (str): The message to log.
         """
         with self.mc.chat_message(name='assistant', avatar=avatar):
             st.markdown(text)
         
         st.session_state.messages.append({'avatar': avatar, 'image': None, 'text': text})
-    
+
+    def text_stream(self, avatar, function, value) -> str:
+        """
+        Internal method to stream a message with a specific avatar.
+        
+        Parameters:
+        avatar (str): The avatar symbol to display next to the message.
+        text (str): The message to log.
+        """
+        text = ""
+        with self.mc.chat_message(name='assistant', avatar=avatar):
+            text = st.write_stream(function(value))
+
+        st.session_state.messages.append({'avatar': avatar, 'image': None, 'text': text})
+
+        return text
+
     def image(self, avatar, image, text):
         with self.mc.chat_message(name='assistant', avatar=avatar):
             st.image(image=image, caption=text)

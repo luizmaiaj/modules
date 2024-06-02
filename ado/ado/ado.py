@@ -243,7 +243,7 @@ class Ado:
         elif 'Microsoft.VSTS.TCM.ReproSteps' in work_item_details['fields']:
             html_text = work_item_details['fields']['Microsoft.VSTS.TCM.ReproSteps']
 
-        no_html, pil_images = self.remove_html(html_text)
+        no_html, pil_images = self.clean_html(html_text)
 
         return no_html, pil_images
 
