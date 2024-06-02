@@ -93,7 +93,6 @@ class Ado:
         """
         Retrieve information about a list of work items in Azure DevOps.
         """
-
         if not ids:
             self.logger.info("Query returned no results")
             return []
@@ -109,20 +108,22 @@ class Ado:
             id_list = ",".join(map(str, ids[start_index:end_index]))
 
             url = f"{base_url}{id_list}"
-
-            response = {}
+            response = None
 
             try:
                 response = requests.get(url, headers=header, timeout=REQUEST_TIMEOUT)
-            except ValueError:
-                self.logger.error(f"{ValueError}")
+            except ValueError as e:
+                self.logger.error(f"{e}")
+                continue
 
             if response.status_code == 200:
                 wit_data = response.json()
                 wits.extend(wit_data['value'])
 
                 if len(wit_data['value']) != len(ids[start_index:end_index]):
-                    self.logger.error(f"ADO: MISMATCH: Requested: {len(ids[start_index:end_index])}, Returned: {len(wit_data)}")
+                    self.logger.error(
+                        f"ADO: MISMATCH: Requested: {len(ids[start_index:end_index])}, "
+                        f"Returned: {len(wit_data)}")
             else:
                 self.logger.error(f"Querying ADO failed: {response.text}")
 
@@ -209,7 +210,9 @@ class Ado:
             self.logger.info("Work item updated successfully")
             return response
 
-        self.logger.error("Failed to update work item. Status code: {response.status_code}, Response: {response.text}")
+        self.logger.error(
+            f"Failed to update work item. Status code: {response.status_code}, "
+            f"Response: {response.text}")
         return None
 
     def get_work_item_description(self, work_item_details) -> str:
@@ -218,18 +221,19 @@ class Ado:
 
         This function extracts the description field from the given work item details.
         It checks for two possible fields that may contain the description: 'System.Description'
-        and 'Microsoft.VSTS.TCM.ReproSteps'. The extracted text is then cleaned by removing HTML tags.
+        and 'Microsoft.VSTS.TCM.ReproSteps'. The extracted text is then cleaned by removing
+        HTML tags.
 
         Parameters:
-            work_item_details (dict): Dictionary containing information about the work item, including
-                its fields.
+            work_item_details (dict): Dictionary containing information about the work item,
+            including its fields.
 
         Returns:
             str: The extracted and cleaned description of the work item.
 
         Notes:
-            This function assumes that either 'System.Description' or 'Microsoft.VSTS.TCM.ReproSteps'
-            field contains the work item's description.
+            This function assumes that either 'System.Description' or
+            'Microsoft.VSTS.TCM.ReproSteps' field contains the work item's description.
         """
 
         html_text = ""
@@ -382,7 +386,9 @@ class Ado:
             if response.status_code == 200:
                 return response.json()
             else:
-                self.logger.error(f"Failed to query with WIQL. Status code: {response.status_code}, Response: {response.text}")
+                self.logger.error(
+                    f"Failed to query with WIQL. Status code: {response.status_code}, "
+                    f"Response: {response.text}")
         except ValueError as e:
             self.logger.exception(f"{e}")
 
@@ -404,6 +410,20 @@ class Ado:
             self.logger.exception(f"{e}")
 
     def get_mem_image_files(self, urls, return_bytes = False):
+        """
+        Downloads image files from the given URLs and returns them as either BytesIO objects
+         or PIL Image objects.
+
+        Parameters:
+            urls (list): A list of URLs pointing to the image files.
+            return_bytes (bool, optional): If True, returns the image files as BytesIO objects.
+             Defaults to False.
+
+        Returns:
+            list: A list of either BytesIO objects or PIL Image objects representing the downloaded
+             image files.
+                  Returns None if the urls parameter is empty.
+        """
         if not urls:
             return None
 
@@ -421,7 +441,18 @@ class Ado:
         return image_files
 
     def clean_html(self, html_text: str):
+        """
+        Cleans HTML text by removing newlines, removing HTML tags, and performing OCR on images.
 
+        Args:
+            html_text (str): The HTML text to be cleaned.
+
+        Returns:
+            tuple: A tuple containing two elements:
+                - str: The cleaned HTML text with OCR text replacing image URLs.
+                - list: A list of PIL Image objects representing the images extracted from the HTML.
+                    Returns None if no image URLs are found.
+        """
         image_info = self.get_image_info(html_text)
 
         html_text = html_text.replace('\n', ' ') # remove \n if any
@@ -446,7 +477,7 @@ class Ado:
 
             if ocr_text:
 
-                ocr_text = "\nBEGIN text extracted from image:\n" + ocr_text + "\nEND text extracted from image.\n"
+                ocr_text = "\n<<<BEGIN_IMAGE_TEXT>>>\n" + ocr_text + "\n<<<END_IMAGE_TEXT>>>\n"
 
                 # Replace the image URL in the original text with the OCR text
                 no_html = no_html.replace(url, ocr_text)
