@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 
 import json
 
+import streamlit as st
+
 from odoo import Odoo, PropertyList
 from logger import Logger
 from settings import Settings
@@ -197,6 +199,7 @@ class Ado2Odoo:
 
     def create_or_update_odoo_tasks_from_ado_tickets(self, st_project, ado_tickets):
         """
+        ## uses streamlit progress
         Creates or updates an Odoo task from ADO information
         NOTE: writing the kanban state label does not seem to work
         """
@@ -204,9 +207,9 @@ class Ado2Odoo:
         count = 0
 
         # TODO: use the progress bar from streamlit
-        # p_bar = Bar("Updating Odoo tasks", max=len(ado_tickets))
+        progress_bar = st.progress(0.0, 'Updating Odoo tasks from ADO')
 
-        for ado_task in ado_tickets:
+        for index, ado_task in enumerate(ado_tickets):
             ado_id = str(ado_task.get('id'))
 
             odoo_tasks = self.odoo.search_odoo_task(st_project, ado_id, True)
@@ -218,11 +221,13 @@ class Ado2Odoo:
             if self.create_or_update_odoo_task_from_ado_ticket(
                 st_project, odoo_tasks[0] if len(odoo_tasks) == 1 else None, ado_task):
                 count += 1
+            
+            progress_bar.progress((index+1)/len(ado_tickets), 'Updating Odoo tasks from ADO')
 
         if count > 0:
-            self.logger.info(f"Updated/Created {count} task(s)")
+            self.logger.success(f"Updated/Created {count} task(s)")
         else:
-            self.logger.info("No tasks created or updated")
+            self.logger.success("No tasks created or updated")
 
     def validate_task_properties(self, task, props: PropertyList):
         """

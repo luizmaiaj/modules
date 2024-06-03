@@ -37,7 +37,7 @@ class Gitea:
         """
         return {
             'accept': 'application/json',
-            'Authorization': f"token {self.settings.get_gitea_tokenl()}"
+            'Authorization': f"token {self.settings.get_gitea_token()}"
         }
 
     def fetch_user_info(self):

@@ -327,6 +327,9 @@ class Settings:
     def get_odoo_api_key(self):
         return self.base['odoo']['api_key']
 
+    def get_odoo_username(self):
+        return self.base['odoo']['username']
+
     def get_ado_base_url(self):
         return self.base['ado']['base_url']
 
@@ -345,8 +348,11 @@ class Settings:
     def get_gitea_base_url(self):
         return self.base['gitea']['BASE_URL']
 
-    def get_gitea_tokenl(self):
+    def get_gitea_token(self):
         return self.base['gitea']['GITEA_TOKEN']
 
     def get_gitea_org(self):
         return self.base['gitea']['organisation']
+
+    def get_projects(self):
+        return self.base['projects']

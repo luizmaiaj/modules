@@ -5,7 +5,7 @@ Module to provide data interfacing between Gitea and Odoo
 from dataclasses import dataclass, field
 
 import json
-from progress.bar import Bar
+import streamlit as st
 
 from odoo import Odoo
 from logger import Logger
@@ -84,31 +84,30 @@ class Gitea2Odoo:
 
     def create_or_update_odoo_tasks_from_gitea_issues(self, st_project, gitea_issues):
         """
+        ## uses streamlit progress
         Creates or updates an Odoo task from GITEA information
         NOTE: writing the kanban state label does not seem to work
         """
 
         count = 0
 
-        p_bar = Bar("Updating Odoo tasks", max=len(gitea_issues))
+        progress_bar = st.progress(0.0, 'Updating Odoo tasks from Gitea')
 
-        for issue in gitea_issues:
+        for index, issue in enumerate(gitea_issues):
             issue_number = str(issue.get('number'))
 
             odoo_tasks = self.odoo.search_odoo_task(st_project, issue_number)
 
             if len(odoo_tasks) > 1:
                 self.logger.error(f"More than one task found for gitea id {issue_number}: SKIPPING this ticket")
-                p_bar.next()
+                progress_bar.progress((index+1)/len(gitea_issues), 'Updating Odoo tasks from Gitea')
                 continue
 
             if self.create_or_update_odoo_task_from_gitea_issue(
                 st_project, odoo_tasks[0] if len(odoo_tasks) == 1 else None, issue):
                 count += 1
 
-            p_bar.next()
-
-        p_bar.finish()
+            progress_bar.progress((index+1)/len(gitea_issues), 'Updating Odoo tasks from Gitea')
 
         if count > 0:
             self.logger.info(f"Updated/Created {count} task(s)")
