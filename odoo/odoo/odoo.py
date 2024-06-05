@@ -490,7 +490,7 @@ class Odoo:
 
         return None
 
-    def log_timesheet(self, task_id, duration_minutes, description):
+    def log_timesheet(self, task_id, duration_minutes, description, date_to_log: str = datetime.datetime.now().strftime('%Y-%m-%d')):
         """
         Logs a timesheet entry with the given duration in minutes
             and associates it with the specified task.
@@ -508,9 +508,11 @@ class Odoo:
         timesheet_data = {
             'task_id': task_id,
             'unit_amount': duration_hours,
-            'date': datetime.datetime.now().strftime('%Y-%m-%d'),  # Log today's date
+            'date': date_to_log,
             'name': description
         }
+
+        self.logger.debug(f'Timesheet data: {timesheet_data}')
 
         try:
             # Create the timesheet entry
@@ -522,7 +524,23 @@ class Odoo:
 
             self.logger.info(f"Logged timesheet entry {timesheet_id} for task {task_id}")
 
-            return timesheet_id
+            # Get the total time logged by the user for date_to_log
+            total_time_logged = MODELS.execute_kw(
+                self.db, self.uid, self.api_key,
+                'account.analytic.line', 
+                'search_read', 
+                [
+                    [
+                        ('date', '=', date_to_log),
+                        ('user_id', '=', self.uid)
+                    ]
+                ],
+                {'fields': ['unit_amount']}
+            )
+
+            total_time_logged_hours = sum(x['unit_amount'] for x in total_time_logged)
+
+            return total_time_logged_hours
 
         except ValueError as e:
             self.logger.exception(e)

@@ -207,7 +207,7 @@ class Ado:
         response = requests.patch(url, json=data, headers=header, timeout=REQUEST_TIMEOUT)
 
         if response.status_code == 200:
-            self.logger.info("Work item updated successfully")
+            self.logger.success("Work item updated successfully")
             return response
 
         self.logger.error(
