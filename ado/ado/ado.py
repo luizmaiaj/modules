@@ -352,7 +352,7 @@ class Ado:
 
             commenter = comment['revisedBy']['displayName']
 
-            formatted_comment = f"Commented by {commenter} on {revised_date}: {no_html}\n"
+            formatted_comment = f"{commenter} on {revised_date}: {no_html}  \n"
             formatted_comments.append(formatted_comment)
 
         return "\n".join(formatted_comments), pil_images
