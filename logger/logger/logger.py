@@ -36,6 +36,9 @@ class Logger:
         avatar (str): The avatar symbol to display next to the message.
         txt (str): The message to log.
         """
+        if not self.mc:
+            return
+
         with self.mc.chat_message(name='assistant', avatar=avatar):
             st.markdown(text)
         
@@ -49,6 +52,9 @@ class Logger:
         avatar (str): The avatar symbol to display next to the message.
         text (str): The message to log.
         """
+        if not self.mc:
+            return
+
         text = ""
         with self.mc.chat_message(name='assistant', avatar=avatar):
             text = st.write_stream(function(value))
@@ -58,6 +64,9 @@ class Logger:
         return text
 
     def image(self, avatar, image, text):
+        if not self.mc:
+            return
+
         with self.mc.chat_message(name='assistant', avatar=avatar):
             st.image(image=image, caption=text)
 
