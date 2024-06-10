@@ -516,7 +516,7 @@ class Ado:
 
             # Extract the src attribute from each image tag
             for img in img_tags:
-                if 'src' in img:
+                if img.has_attr('src'):
                     img_urls.append(img['src'])
 
             if img_urls:
