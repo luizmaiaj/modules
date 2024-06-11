@@ -538,7 +538,10 @@ class Ado:
 
         # Replace anchor tags with their href attribute
         for a in soup.find_all('a'):
-            a.replace_with(a['href'])
+            if 'href' in a.attrs:
+                a.replace_with(a['href'])
+            else:
+                a.replace_with(a.get_text())
 
         # Get the text with URLs preserved
         no_html_text = soup.get_text(separator=" ", strip=True)
