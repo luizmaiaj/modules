@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 import requests
 from PIL import Image
 from bs4 import BeautifulSoup
+import validators
 
 from progress.spinner import Spinner
 
@@ -527,6 +528,15 @@ class Ado:
                 return image_info
 
     def remove_html_keep_urls(self, html_text):
+        """
+        Removes HTML tags from the given text but keeps valid URLs.
+
+        Args:
+            html_text (str): The HTML text to be cleaned.
+
+        Returns:
+            str: The text without HTML tags but with valid URLs preserved.
+        """
         if not html_text:
             return None
 
@@ -536,10 +546,11 @@ class Ado:
         for img in soup.find_all('img'):
             img.replace_with(img['src'])
 
-        # Replace anchor tags with their href attribute
+        # Replace anchor tags with their href attribute, but only keep valid URLs
         for a in soup.find_all('a'):
-            if 'href' in a.attrs:
-                a.replace_with(a['href'])
+            href = a.get('href', '')
+            if validators.url(href):
+                a.replace_with(href)
             else:
                 a.replace_with(a.get_text())
 
