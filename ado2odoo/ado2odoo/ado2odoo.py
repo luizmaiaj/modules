@@ -216,8 +216,10 @@ class Ado2Odoo:
                 self.logger.error(f"More than one task found for ado id {ado_id}: SKIPPING this ticket")
                 continue
 
+            odoo_task = odoo_tasks[0] if len(odoo_tasks) == 1 else None
+
             if self.create_or_update_odoo_task_from_ado_ticket(
-                st_project, odoo_tasks[0] if len(odoo_tasks) == 1 else None, ado_task):
+                st_project, odoo_task, ado_task):
                 count += 1
             
             progress_bar.progress((index+1)/len(ado_tickets), 'Updating Odoo tasks from ADO')

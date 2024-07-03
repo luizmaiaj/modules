@@ -238,8 +238,6 @@ class Odoo:
                 self.db, self.uid, self.api_key,
                 'project.task', 'write', [[task_id], task_data])
 
-            self.logger.info(f"UPDATED TASK {task_id}: {task_data['name']}")
-
             return True
 
         except ValueError:
