@@ -84,7 +84,6 @@ class Gitea2Odoo:
 
     def create_or_update_odoo_tasks_from_gitea_issues(self, st_project, gitea_issues):
         """
-        ## uses streamlit progress
         Creates or updates an Odoo task from GITEA information
         NOTE: writing the kanban state label does not seem to work
         """

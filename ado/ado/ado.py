@@ -12,8 +12,6 @@ from PIL import Image
 from bs4 import BeautifulSoup
 import validators
 
-from progress.spinner import Spinner
-
 from settings import Settings, REQUEST_TIMEOUT, ADO_PAGE_SIZE
 from ocr import perform_mem_ocr
 from logger import Logger
@@ -544,7 +542,10 @@ class Ado:
 
         # Replace image tags with their src attribute
         for img in soup.find_all('img'):
-            img.replace_with(img['src'])
+            if 'src' in img:
+                img.replace_with(img['src'])
+            else:
+                print(f'SRC NOT FOUND IN IMG: {html_text}')
 
         # Replace anchor tags with their href attribute, but only keep valid URLs
         for a in soup.find_all('a'):

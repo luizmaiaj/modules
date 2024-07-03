@@ -70,9 +70,6 @@ class Timesheets:
             self.logger.info("No timesheets to update")
             return
 
-        # TODO: use progress bar from streamlit
-        # p_bar = Bar("Updating timesheets", max=len(timesheets))
-
         # Iterate through each task and update the description
         for timesheet in timesheets:
 

@@ -199,14 +199,12 @@ class Ado2Odoo:
 
     def create_or_update_odoo_tasks_from_ado_tickets(self, st_project, ado_tickets):
         """
-        ## uses streamlit progress
         Creates or updates an Odoo task from ADO information
         NOTE: writing the kanban state label does not seem to work
         """
 
         count = 0
 
-        # TODO: use the progress bar from streamlit
         progress_bar = st.progress(0.0, 'Updating Odoo tasks from ADO')
 
         for index, ado_task in enumerate(ado_tickets):

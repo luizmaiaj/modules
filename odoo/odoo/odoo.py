@@ -93,9 +93,6 @@ class Odoo:
         tasks = []
         offset = 0
 
-        # TODO: use progress bar/spinner from streamlit
-        # p_spinner = Spinner('Loading ')
-
         while True:
             try:
                 _tasks = MODELS.execute_kw(

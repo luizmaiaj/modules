@@ -7,8 +7,6 @@ from dataclasses import dataclass, field
 import json
 import requests
 
-from progress.spinner import Spinner
-
 from settings import REQUEST_TIMEOUT, Settings
 from logger import Logger
 
