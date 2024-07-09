@@ -205,9 +205,7 @@ class Ado2Odoo:
 
         count = 0
 
-        progress_bar = st.progress(0.0, 'Updating Odoo tasks from ADO')
-
-        for index, ado_task in enumerate(ado_tickets):
+        for ado_task in ado_tickets:
             ado_id = str(ado_task.get('id'))
 
             odoo_tasks = self.odoo.search_odoo_task(st_project, ado_id, True)
@@ -221,8 +219,6 @@ class Ado2Odoo:
             if self.create_or_update_odoo_task_from_ado_ticket(
                 st_project, odoo_task, ado_task):
                 count += 1
-            
-            progress_bar.progress((index+1)/len(ado_tickets), 'Updating Odoo tasks from ADO')
 
         if count > 0:
             self.logger.success(f"Updated/Created {count} task(s)")

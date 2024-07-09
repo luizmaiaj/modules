@@ -72,16 +72,11 @@ class Ado:
 
         url = self.base_url + f"/_apis/wit/wiql?id={query_id}"
 
-        p_spinner = Spinner('Loading ')
-
         try:
             response = requests.get(url, headers=header, timeout=REQUEST_TIMEOUT)
-            p_spinner.next()
         except ValueError:
             self.logger.exception(f"{ValueError}")
             return None
-        finally:
-            p_spinner.finish()
 
         if response.status_code == 200:
             return response.json()

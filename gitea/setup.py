@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='gitea',
-    version='0.1.1',
+    version='0.1.2',
     packages=find_packages(),
     install_requires=[
         'requests',  # Assuming gitea.py might use requests to interact with Gitea API

@@ -90,23 +90,18 @@ class Gitea2Odoo:
 
         count = 0
 
-        progress_bar = st.progress(0.0, 'Updating Odoo tasks from Gitea')
-
-        for index, issue in enumerate(gitea_issues):
+        for issue in gitea_issues:
             issue_number = str(issue.get('number'))
 
             odoo_tasks = self.odoo.search_odoo_task(st_project, issue_number)
 
             if len(odoo_tasks) > 1:
                 self.logger.error(f"More than one task found for gitea id {issue_number}: SKIPPING this ticket")
-                progress_bar.progress((index+1)/len(gitea_issues), 'Updating Odoo tasks from Gitea')
                 continue
 
             if self.create_or_update_odoo_task_from_gitea_issue(
                 st_project, odoo_tasks[0] if len(odoo_tasks) == 1 else None, issue):
                 count += 1
-
-            progress_bar.progress((index+1)/len(gitea_issues), 'Updating Odoo tasks from Gitea')
 
         if count > 0:
             self.logger.info(f"Updated/Created {count} task(s)")

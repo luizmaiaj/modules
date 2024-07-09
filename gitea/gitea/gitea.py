@@ -102,11 +102,8 @@ class Gitea:
         """
         url = f"{self.settings.get_gitea_base_url()}/api/v1/repos/{self.settings.get_gitea_org()}/{repo_name}/issues"
 
-        p_spinner = Spinner('Loading ')
-
         try:
             response = requests.get(url, headers=self.build_header(), timeout=REQUEST_TIMEOUT)
-            p_spinner.next()
             if response.status_code == 200:
                 issues = response.json()
 
@@ -116,9 +113,6 @@ class Gitea:
 
         except requests.exceptions.RequestException as e:
             self.logger.exception(f"{e}")
-
-        finally:
-            p_spinner.finish()
 
         return None
 
