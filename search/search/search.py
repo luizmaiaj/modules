@@ -32,22 +32,23 @@ def search_image_duckduckgo(keywords, max_results=1):
     results = ddgs.images(keywords, max_results=max_results)
     return results
 
-def search_text_google(query, api_key, cx, num_results=10):
+def search_text_google(query, api_key, cx, num_results=10, start=1):
     try:
         service = build("customsearch", "v1", developerKey=api_key)
         res = service.cse().list(
             q=query,
             cx=cx,
-            num=num_results
+            num=num_results,
+            start=start
         ).execute()
         return res.get('items', [])
     except ValueError as e:
         print(f"An error occurred: {e}")
         return []
 
-def search_text_duckduckgo(keywords, max_results=10):
+def search_text_duckduckgo(keywords, safesearch='off', max_results=10):
     ddgs = DDGS()
-    results = ddgs.text(keywords, max_results=max_results)
+    results = ddgs.text(keywords, safesearch=safesearch, max_results=max_results)
     return results
 
 def download_image(url):
