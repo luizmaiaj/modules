@@ -2,10 +2,10 @@ import os
 from PIL import Image
 import requests
 from io import BytesIO
-from dotenv import find_dotenv, load_dotenv
 
 from googleapiclient.discovery import build
 from duckduckgo_search import DDGS
+from bs4 import BeautifulSoup
 import hashlib
 import re
 
@@ -32,7 +32,7 @@ def search_image_duckduckgo(keywords, safesearch='off', max_results=10):
     results = ddgs.images(keywords, safesearch=safesearch, max_results=max_results)
     return results
 
-def search_text_google(query, api_key, cx, num_results=10, start=1):
+def search_text_google(query, api_key, cx, num_results=10, start=1, return_content=False):
     try:
         service = build("customsearch", "v1", developerKey=api_key)
         res = service.cse().list(
@@ -41,15 +41,43 @@ def search_text_google(query, api_key, cx, num_results=10, start=1):
             num=num_results,
             start=start
         ).execute()
-        return res.get('items', [])
+
+        items = res.get('items', [])
+
+        urls = [item.get('link') for item in items]
+
+        if not return_content:
+            return urls
+
+        return get_contents(urls)
+
     except ValueError as e:
         print(f"An error occurred: {e}")
         return []
 
-def search_text_duckduckgo(keywords, safesearch='off', max_results=10):
+def search_text_duckduckgo(keywords, safesearch='off', max_results=10, return_content=False):
     ddgs = DDGS()
     results = ddgs.text(keywords, safesearch=safesearch, max_results=max_results)
-    return results
+
+    urls = [result.get('href') for result in results]
+
+    if not return_content:
+        return urls
+    
+    return get_contents(urls)
+
+def get_contents(urls):
+    contents = []
+    for url in urls:
+        if url:
+            try:
+                response = requests.get(url)
+                soup = BeautifulSoup(response.text, 'html.parser')
+                content = soup.get_text()
+                contents.append(content)
+            except requests.RequestException as e:
+                print(f"Failed to fetch content from {url}: {e}")
+    return contents
 
 def download_image(url):
     response = requests.get(url)

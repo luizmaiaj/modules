@@ -2,14 +2,17 @@ from setuptools import setup, find_packages
 
 setup(
     name='search',
-    version='0.1.4',
+    version='0.1.5',
     packages=find_packages(),
     install_requires=[
         'pillow',
         'requests',
         'google-api-python-client',
         'duckduckgo-search',
-        'python-dotenv'
+        'python-dotenv',
+        'beautifulsoup4',
+        'lxml',
+        'html5lib'
     ],
     author='Luiz Maia',
     author_email='search@luiz.be',
