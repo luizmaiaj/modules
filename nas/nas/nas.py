@@ -57,7 +57,7 @@ class Nas:
     def delete_file(self, shared_folder_name, file_path):
         try:
             self.conn.deleteFiles(shared_folder_name, file_path)
-            print(f"Deleted {shared_folder_name}\{file_path}")
+            print(f"Deleted {shared_folder_name}{file_path}")
         except ValueError as e:
             print(e)
 
@@ -292,7 +292,7 @@ class Nas:
         nas_files = self.conn.listPath(nas_share_name, nas_folder_path)
         for file in nas_files:
             if file.filename not in ['.', '..']:
-                file_path = f"{nas_folder_path}/{file.filename}"
+                file_path = os.path.join(nas_folder_path, file.filename)
                 if file.isDirectory:
                     self.recursive_hashes(nas_share_name, file_path)
                 else:
