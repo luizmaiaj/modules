@@ -9,6 +9,9 @@ from bs4 import BeautifulSoup
 import hashlib
 import re
 
+import csv
+from urllib.parse import urljoin, urlparse
+
 API_KEY_GOOGLE = os.getenv('API_KEY_GOOGLE')
 CX_GOOGLE = os.getenv('CX_GOOGLE')
 API_KEY_BING = os.getenv('API_KEY_BING')
@@ -130,3 +133,47 @@ def generate_folder_name(url):
         folder_name = folder_name[:50-len(url_hash)-1] + '-' + url_hash
 
     return folder_name
+
+def extract_links_to_csv(url, output_file='links.csv'):
+    # Send a GET request to the URL
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for bad status codes
+    except requests.RequestException as e:
+        print(f"Error fetching the URL: {e}")
+        return
+
+    # Parse the HTML content
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    # Find all 'a' tags (links) in the HTML
+    links = soup.find_all('a')
+
+    # Prepare data for CSV
+    unique_data = set()
+    for link in links:
+        href = link.get('href')
+        if href:
+            # Make sure the URL is absolute
+            full_url = urljoin(url, href)
+            # Extract the folder (path) from the URL
+            folder = urlparse(full_url).path.strip('/')
+
+            if folder:
+                # Set depth to 1 as per requirement
+                depth = 1
+                unique_data.add((full_url, folder, depth))
+
+    data = list(unique_data)
+
+    # Write data to CSV file
+    try:
+        with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile, delimiter=';')
+            # Write the header
+            writer.writerow(['URL', 'Folder', 'Depth'])
+            # Write the data
+            writer.writerows(data)
+        print(f"CSV file '{output_file}' has been created successfully.")
+    except IOError as e:
+        print(f"Error writing to CSV file: {e}")

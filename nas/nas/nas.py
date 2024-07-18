@@ -75,8 +75,17 @@ class Nas:
 
             confirm_delete = input("Do you want to proceed with deleting these files? (yes/no): ").strip().lower()
             if confirm_delete == 'yes':
+                deleted_files = []
                 for file_info in impacted_files:
                     self.delete_file(shared_folder_name, file_info['path'])
+                    deleted_files.append(file_info)
+
+            # Remove deleted files from image_data
+            self.image_data = [file_info for file_info in self.image_data if file_info not in deleted_files]
+
+            self.save_db()
+
+            print(f"Removed {len(deleted_files)} entries from image_data")
         else:
             print("No files meet the size criteria for deletion.")
 
@@ -102,14 +111,28 @@ class Nas:
         """
         Assumes that the connection is already alive
         """
-
         if date_choice == 'older':
             duplicate_group.sort(key=lambda x: datetime.fromtimestamp(x['creation_date']))
         elif date_choice == 'newer':
             duplicate_group.sort(key=lambda x: datetime.fromtimestamp(x['creation_date']), reverse=True)
+        
+        files_to_delete = duplicate_group[1:]  # All but the first file in the sorted group
+        deleted_files = []
 
-        for file_info in duplicate_group[1:]:
-            self.delete_file(shared_folder_name, file_info['path'])
+        for file_info in files_to_delete:
+            try:
+                self.delete_file(shared_folder_name, file_info['path'])
+                deleted_files.append(file_info)
+                print(f"Deleted duplicate: {file_info['path']}")
+            except ValueError as e:
+                print(f"Failed to delete {file_info['path']}: {str(e)}")
+        
+        # Remove deleted files from image_data
+        self.image_data = [file_info for file_info in self.image_data if file_info not in deleted_files]
+
+        self.save_db()
+
+        print(f"Removed {len(deleted_files)} entries from image_data")
 
     def find_duplicates_in_db(self):
         hash_map = {}
@@ -123,13 +146,13 @@ class Nas:
         duplicates = [files for files in hash_map.values() if len(files) > 1]
         return duplicates
 
-    def copy_files_to_nas_photos_library(self, local_folder, nas_folder_name, delete_small_images, move_files=False):
+    def copy_files_to_nas_photos_library(self, local_folder, nas_share_name, nas_folder_path, nas_folder_name, delete_small_images, move_files=False):
 
         self.connect()
 
         # List folders in the Photos library
-        print("\nFolders in Photos Library:")
-        photos_folders = self.conn.listPath('home', '/Photos/PhotoLibrary')
+        print(f"\nFolders in {nas_folder_path}:")
+        photos_folders = self.conn.listPath(nas_share_name, nas_folder_path)
         folder_names = []
         for folder in photos_folders:
             if folder.isDirectory and folder.filename not in ['.', '..']:
@@ -138,13 +161,13 @@ class Nas:
 
         # Check if the specified folder already exists, if not, create it
         if nas_folder_name not in folder_names:
-            new_folder_path = f"/Photos/PhotoLibrary/{nas_folder_name}"
-            self.conn.createDirectory('home', new_folder_path)
+            new_folder_path = f"{nas_folder_path}{nas_folder_name}"
+            self.conn.createDirectory(nas_share_name, new_folder_path)
         else:
-            new_folder_path = f"/Photos/PhotoLibrary/{nas_folder_name}"
+            new_folder_path = f"{nas_folder_path}{nas_folder_name}"
 
         # Retrieving the list of existing files
-        existing_files = self.conn.listPath('home', new_folder_path)
+        existing_files = self.conn.listPath(nas_share_name, new_folder_path)
 
         # Copy or move files to the selected or new folder, skipping existing files
         try:
@@ -168,13 +191,13 @@ class Nas:
 
                     with open(local_file_path, 'rb') as file_obj:
                         file_bytes = file_obj.read()
-                        self.conn.storeFile('home', remote_file_path, BytesIO(file_bytes))
+                        self.conn.storeFile(nas_share_name, remote_file_path, BytesIO(file_bytes))
 
                     if move_files:
                         os.remove(local_file_path)
-                        print(f"Moved {filename} to {nas_folder_name}")
+                        print(f"Moved {filename} to {nas_folder_path}")
                     else:
-                        print(f"Copied {filename} to {nas_folder_name}")
+                        print(f"Copied {filename} to {nas_folder_path}")
         except ValueError as e:
             print(f"{local_folder}: {e}")
 
@@ -185,38 +208,40 @@ class Nas:
                 print(f"Deleted local folder: {local_folder}")
             except OSError as e:
                 print(f"Error deleting folder {local_folder}: {e}")
+        
+        self.update_db(nas_share_name, nas_folder_path)
 
         self.disconnect()
 
-    def traverse_nas_folder(self, folder_path):
+    def traverse_nas_folder(self, nas_share_name, nas_folder_path):
         """
         Assumes that the connection is already alive
         """
 
         files_list = []
-        nas_files = self.conn.listPath('home', folder_path)
+        nas_files = self.conn.listPath(nas_share_name, nas_folder_path)
         for file in nas_files:
             if file.filename not in ['.', '..']:
-                file_path = f"{folder_path}/{file.filename}"
+                file_path = f"{nas_folder_path}/{file.filename}"
                 print(f"Processing file: {file_path}")
                 if file.isDirectory:
-                    files_list.extend(self.traverse_nas_folder(file_path))
+                    files_list.extend(self.traverse_nas_folder(nas_share_name, file_path))
                 else:
                     files_list.append(file_path)
         return files_list
 
-    def calculate_file_hash(self, shared_folder_name, file_path, file):
+    def calculate_file_hash(self, nas_share_name, nas_file_path, file):
         """
         Assumes that the connection is already alive
         """
 
         file_obj = BytesIO()
-        self.conn.retrieveFile(shared_folder_name, file_path, file_obj)
+        self.conn.retrieveFile(nas_share_name, nas_file_path, file_obj)
         file_obj.seek(0)
         file_hash = hashlib.md5(file_obj.read()).hexdigest()
 
         return {
-            'path': file_path,
+            'path': nas_file_path,
             'hash': file_hash,
             'creation_date': file.create_time,
             'size': file.file_size
@@ -241,10 +266,17 @@ class Nas:
             print(e)
             return False
 
-    def update_db(self, nas_folder_path):
+    def save_db(self):
+        try:
+            with open(file=self.image_data_filename, mode='w', encoding='utf-8') as f:
+                json.dump(self.image_data, f, default=str)
+        except ValueError as e:
+            print(e)
+
+    def update_db(self, nas_share_name, nas_folder_path):
         print(f"Updating {self.image_data_filename}...")
         self.temp_image_data.clear()
-        self.recursive_hashes(nas_folder_path)
+        self.recursive_hashes(nas_share_name, nas_folder_path)
         
         # Overwrite image_data with temp_image_data
         self.image_data = self.temp_image_data.copy()
@@ -252,18 +284,17 @@ class Nas:
         # Clear temp_image_data after copying
         self.temp_image_data.clear()
         
-        with open(file=self.image_data_filename, mode='w', encoding='utf-8') as f:
-            json.dump(self.image_data, f, default=str)
+        self.save_db()
         
         print(f"Updated {self.image_data_filename} with {len(self.image_data)} entries")
 
-    def recursive_hashes(self, folder_path):
-        nas_files = self.conn.listPath('home', folder_path)
+    def recursive_hashes(self, nas_share_name, nas_folder_path):
+        nas_files = self.conn.listPath(nas_share_name, nas_folder_path)
         for file in nas_files:
             if file.filename not in ['.', '..']:
-                file_path = f"{folder_path}/{file.filename}"
+                file_path = f"{nas_folder_path}/{file.filename}"
                 if file.isDirectory:
-                    self.recursive_hashes(file_path)
+                    self.recursive_hashes(nas_share_name, file_path)
                 else:
                     # Check if the file path already exists in self.image_data
                     existing_file_info = next((item for item in self.image_data if item['path'] == file_path), None)
@@ -274,59 +305,34 @@ class Nas:
                         self.temp_image_data.append(existing_file_info)
                     else:
                         # If the file info doesn't exist, calculate the hash and add it
-                        file_info = self.calculate_file_hash('home', file_path, file)
+                        file_info = self.calculate_file_hash(nas_share_name, file_path, file)
                         print(f"Processing file {file_info['path']}; Hash {file_info['hash']}")
                         self.temp_image_data.append(file_info)
 
-    def cleanup_nas_images(self):
+    def cleanup_nas_images(self, nas_share_name, nas_folder_path, update_db:bool=True, delete_duplicates:str='no', delete_files_smaller_than:int=0):
+        """
+        delete_duplicates: no, older or newer
+        """
 
         self.connect()
 
-        nas_folder_path = '/Photos/PhotoLibrary'
-
-        choice = ''
-
-        if self.load_db():
-            choice = input(f"Do you want to update {self.image_data_filename}? (yes): ").strip().lower()
-
-        if choice in ['yes', 'y']:
-            self.update_db(nas_folder_path)
-
-        run_db_update_on_end = False
-
-        duplicates = self.find_duplicates_in_db()
-        if duplicates:
-
-            for dup_group in duplicates:
-                    for idx, file_info in enumerate(dup_group):
-                        print(f"{idx + 1}. {file_info['path']} (Created on {file_info['creation_date']}, Size: {file_info['size']} bytes)")
-
-            delete_choice = input(f"Do you want to delete the duplicates? {len(duplicates)} (yes/no): ").strip().lower()
-
-            if delete_choice == 'yes':
-                run_db_update_on_end = True
-                date_choice = input("Delete older or newer files? (older/newer): ").strip().lower()
-                for dup_group in duplicates:
-                    self.delete_duplicates('home', dup_group, date_choice)
+        if self.load_db() or update_db:
+            self.update_db(nas_share_name, nas_folder_path)
 
         # Ask the user if they want to delete files based on size
-        size_delete_choice = input("Do you want to delete files based on size? (yes/no): ").strip().lower()
-        if size_delete_choice == 'yes':
-            run_db_update_on_end = True
-            size_limit = int(input("Enter the size limit in bytes: ").strip())
-            self.delete_files_by_size('home', size_limit)
-        
-        if run_db_update_on_end:
-            self.update_db(nas_folder_path)
+        if delete_files_smaller_than > 0:
+            self.delete_files_by_size(nas_share_name, delete_files_smaller_than)
 
-        # # New option to list and upscale files smaller than 50k
-        # list_small_files_choice = input("Do you want to list and upscale files smaller than 25k? (yes/no): ").strip().lower()
-        # if list_small_files_choice == 'yes':
-        #     small_files = self.list_small_files(image_data, 25000)
-        #     if small_files:
-        #         upscale_choice = input("Do you want to upscale these files? (yes/no): ").strip().lower()
-        #         if upscale_choice == 'yes':
-        #             self.upscale_small_files(small_files)
+        if delete_duplicates in ['older','newer']:
+            duplicates = self.find_duplicates_in_db()
+
+            if duplicates:
+                for dup_group in duplicates:
+                        for idx, file_info in enumerate(dup_group):
+                            print(f"{idx + 1}. {file_info['path']} (Created on {file_info['creation_date']}, Size: {file_info['size']} bytes)")
+
+                for dup_group in duplicates:
+                    self.delete_duplicates(nas_share_name, dup_group, delete_duplicates)
 
         self.disconnect()
 
