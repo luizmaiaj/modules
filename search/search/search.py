@@ -11,6 +11,8 @@ import re
 
 import csv
 from urllib.parse import urljoin, urlparse
+from validator_collection import validators, checkers, errors
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_KEY_GOOGLE = os.getenv('API_KEY_GOOGLE')
 CX_GOOGLE = os.getenv('CX_GOOGLE')
@@ -134,46 +136,80 @@ def generate_folder_name(url):
 
     return folder_name
 
-def extract_links_to_csv(url, output_file='links.csv'):
-    # Send a GET request to the URL
+def validate_url(url):
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for bad status codes
-    except requests.RequestException as e:
-        print(f"Error fetching the URL: {e}")
-        return
+        # Validate the URL
+        validators.url(url)
+        print(f"The URL '{url}' is valid.")
+        return True
+    except errors.InvalidURLError:
+        print(f"The URL '{url}' is invalid.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
-    # Parse the HTML content
-    soup = BeautifulSoup(response.text, 'html.parser')
+    return False
 
-    # Find all 'a' tags (links) in the HTML
-    links = soup.find_all('a')
+def extract_links_to_csv(url, output_file='links.csv', recursive=False):
+    def get_links(page_url):
+        try:
+            response = requests.get(page_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            return [link.get('href') for link in soup.find_all('a') if link.get('href')]
+        except requests.RequestException as e:
+            print(f"Error fetching the URL {page_url}: {e}")
+            return []
 
-    # Prepare data for CSV
-    unique_data = set()
-    for link in links:
-        href = link.get('href')
-        if href:
-            # Make sure the URL is absolute
-            full_url = urljoin(url, href)
-            # Extract the folder (path) from the URL
-            folder = urlparse(full_url).path.strip('/')
+    def process_links(link, sub_links):
+        unique_data = set()
+        for href in sub_links:
+            if href != link and href.startswith(link.strip('/')):
+                full_url = href
+                folder = urlparse(link).path.strip('/')
+                if folder:
+                    unique_data.add((full_url, folder, 1))  # Depth is always 1
+        return unique_data
 
-            if folder:
-                # Set depth to 1 as per requirement
-                depth = 1
-                unique_data.add((full_url, folder, depth))
+    def fetch_and_process(link):
+        if validate_url(link):
+            sub_links = get_links(link)
+            return process_links(link, sub_links)
+        return set()
 
-    data = list(unique_data)
+    # Process the initial page
+    initial_links = get_links(url)
+    
+    all_data = set()
+
+    if not recursive:
+        # If not recursive, just process the initial page links
+        for href in initial_links:
+            if href:
+                # Make sure the URL is absolute
+                full_url = urljoin(url, href)
+                # Extract the folder (path) from the URL
+                folder = urlparse(full_url).path.strip('/')
+
+                if folder:
+                    # Set depth to 1 as per requirement
+                    depth = 1
+                    all_data.add((full_url, folder, depth))
+    else:
+        # If recursive, use ThreadPoolExecutor to visit each link from the initial page
+        with ThreadPoolExecutor(max_workers=50) as executor:
+            future_to_link = {executor.submit(fetch_and_process, urljoin(url, link)): link for link in initial_links}
+            for future in as_completed(future_to_link):
+                result = future.result()
+                all_data.update(result)
+
+    all_data = list(all_data)
 
     # Write data to CSV file
     try:
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile, delimiter=';')
-            # Write the header
             writer.writerow(['URL', 'Folder', 'Depth'])
-            # Write the data
-            writer.writerows(data)
-        print(f"CSV file '{output_file}' has been created successfully.")
+            writer.writerows(all_data)
+        print(f"CSV file '{output_file}' has been created successfully with {len(all_data)} unique entries.")
     except IOError as e:
         print(f"Error writing to CSV file: {e}")
