@@ -288,30 +288,36 @@ class Nas:
 
         if self.load_db():
             choice = input(f"Do you want to update {self.image_data_filename}? (yes): ").strip().lower()
-            
+
         if choice in ['yes', 'y']:
             self.update_db(nas_folder_path)
 
+        run_db_update_on_end = False
+
         duplicates = self.find_duplicates_in_db()
         if duplicates:
-            print("Duplicate files found:")
-            date_choice = input("Delete older or newer files? (older/newer): ").strip().lower()
 
             for dup_group in duplicates:
                     for idx, file_info in enumerate(dup_group):
                         print(f"{idx + 1}. {file_info['path']} (Created on {file_info['creation_date']}, Size: {file_info['size']} bytes)")
 
-            delete_choice = input("Do you want to delete the duplicates? (yes/no): ").strip().lower()
+            delete_choice = input(f"Do you want to delete the duplicates? {len(duplicates)} (yes/no): ").strip().lower()
 
             if delete_choice == 'yes':
+                run_db_update_on_end = True
+                date_choice = input("Delete older or newer files? (older/newer): ").strip().lower()
                 for dup_group in duplicates:
                     self.delete_duplicates('home', dup_group, date_choice)
 
         # Ask the user if they want to delete files based on size
         size_delete_choice = input("Do you want to delete files based on size? (yes/no): ").strip().lower()
         if size_delete_choice == 'yes':
+            run_db_update_on_end = True
             size_limit = int(input("Enter the size limit in bytes: ").strip())
             self.delete_files_by_size('home', size_limit)
+        
+        if run_db_update_on_end:
+            self.update_db(nas_folder_path)
 
         # # New option to list and upscale files smaller than 50k
         # list_small_files_choice = input("Do you want to list and upscale files smaller than 25k? (yes/no): ").strip().lower()
