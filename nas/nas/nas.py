@@ -219,15 +219,17 @@ class Nas:
         """
 
         files_list = []
-        nas_files = self.conn.listPath(nas_share_name, nas_folder_path)
-        for file in nas_files:
-            if file.filename not in ['.', '..']:
-                file_path = f"{nas_folder_path}/{file.filename}"
-                print(f"Processing file: {file_path}")
-                if file.isDirectory:
-                    files_list.extend(self.traverse_nas_folder(nas_share_name, file_path))
-                else:
-                    files_list.append(file_path)
+        try:
+            nas_files = self.conn.listPath(nas_share_name, nas_folder_path)
+            for file in nas_files:
+                if file.filename not in ['.', '..']:
+                    file_path = f"{nas_folder_path}/{file.filename}"
+                    if file.isDirectory:
+                        files_list.extend(self.traverse_nas_folder(nas_share_name, file_path))
+                    else:
+                        files_list.append(file_path)
+        except Exception as e:
+            print(f"Error listing files in {nas_folder_path}: {e}")
         return files_list
 
     def calculate_file_hash(self, nas_share_name, nas_file_path, file):
@@ -235,17 +237,29 @@ class Nas:
         Assumes that the connection is already alive
         """
 
-        file_obj = BytesIO()
-        self.conn.retrieveFile(nas_share_name, nas_file_path, file_obj)
-        file_obj.seek(0)
-        file_hash = hashlib.md5(file_obj.read()).hexdigest()
-
-        return {
-            'path': nas_file_path,
-            'hash': file_hash,
-            'creation_date': file.create_time,
-            'size': file.file_size
-        }
+        if file is None:
+            file_obj = BytesIO()
+            self.conn.retrieveFile(nas_share_name, nas_file_path, file_obj)
+            file_obj.seek(0)
+            file_hash = hashlib.md5(file_obj.read()).hexdigest()
+            file_info = self.conn.getAttributes(nas_share_name, nas_file_path)
+            return {
+                'path': nas_file_path,
+                'hash': file_hash,
+                'creation_date': file_info.create_time,
+                'size': file_info.file_size
+            }
+        else:
+            file_obj = BytesIO()
+            self.conn.retrieveFile(nas_share_name, nas_file_path, file_obj)
+            file_obj.seek(0)
+            file_hash = hashlib.md5(file_obj.read()).hexdigest()
+            return {
+                'path': nas_file_path,
+                'hash': file_hash,
+                'creation_date': file.create_time,
+                'size': file.file_size
+            }
 
     def load_db(self) -> bool:
 
