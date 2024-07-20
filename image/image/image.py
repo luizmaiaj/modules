@@ -1,8 +1,76 @@
 import os
 import subprocess
 import tempfile
+from typing import List, Tuple
+from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from io import BytesIO
+
+def enhance_single_image(args):
+    executable_path, input_path, output_path, model, scale, fmt = args
+    command = [
+        str(executable_path),
+        '-i', input_path,
+        '-o', output_path,
+        '-n', model,
+        '-s', str(scale),
+        '-f', fmt
+    ]
+    try:
+        subprocess.run(command, check=True)
+        return (input_path, output_path, True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error enhancing {input_path}: {e}")
+        return (input_path, output_path, False)
+    except Exception as e:
+        print(f"Unexpected error enhancing {input_path}: {e}")
+        return (input_path, output_path, False)
+
+def enhance_multiple_images_parallel(
+    executable_path: str,
+    input_files: List[str],
+    appendix: str = "_enhanced",
+    model: str = 'realesr-animevideov3-x4',
+    scale: int = 2,
+    fmt: str = 'png',
+    num_processes: int = None
+) -> List[Tuple[str, str]]:
+    """
+    Enhance multiple images in parallel and save them in the same folder as the input files.
+
+    Args:
+    executable_path (str): Path to the image enhancement executable.
+    input_files (List[str]): List of paths to input image files.
+    appendix (str): String to append to the filename of enhanced images.
+    model (str): Name of the model to use for enhancement.
+    scale (int): Scale factor for image enhancement.
+    fmt (str): Output format for enhanced images.
+    num_processes (int): Number of processes to use. If None, uses the number of CPU cores.
+
+    Returns:
+    List[Tuple[str, str]]: List of tuples containing (input_path, output_path) for each successfully processed file.
+    """
+    if num_processes is None:
+        num_processes = cpu_count()
+
+    # Prepare arguments for each file
+    args_list = []
+    for input_path in input_files:
+        dir_name, file_name = os.path.split(input_path)
+        file_name_without_ext, file_ext = os.path.splitext(file_name)
+        output_file_name = f"{file_name_without_ext}{appendix}{file_ext}"
+        output_path = os.path.join(dir_name, output_file_name)
+        args_list.append((executable_path, input_path, output_path, model, scale, fmt))
+
+    # Process images in parallel
+    with Pool(processes=num_processes) as pool:
+        results = pool.map(enhance_single_image, args_list)
+
+    # Filter and return successful enhancements
+    enhanced_files = [(input_path, output_path) for input_path, output_path, success in results if success]
+    
+    print(f"Successfully enhanced {len(enhanced_files)} out of {len(input_files)} images.")
+    return enhanced_files
 
 def ensure_executable(models_path):
     executable_path = models_path.parent / 'realesrgan-ncnn-vulkan'
