@@ -4,6 +4,7 @@ from datetime import datetime
 import hashlib
 import json
 from smb.SMBConnection import SMBConnection
+from smb.smb_structs import OperationFailure
 
 from dataclasses import dataclass, field
 
@@ -53,6 +54,32 @@ class Nas:
             print(e)
         finally:
             self.conn = None
+
+    def list_directory(self, shared_folder, path):
+        try:
+            files = self.conn.listPath(shared_folder, path)
+            return [f.filename for f in files if f.filename not in ['.', '..']]
+        except OperationFailure as e:
+            print(f"Error listing directory {path}: {e}")
+            return []
+
+    def is_directory(self, shared_folder, path):
+        try:
+            file_info = self.conn.getAttributes(shared_folder, path)
+            return file_info.isDirectory
+        except OperationFailure:
+            return False
+
+    def join_path(self, *args):
+        return '/'.join(arg.strip('/') for arg in args if arg)
+
+    def normalize_path(self, path):
+        return '/' + '/'.join(filter(None, path.split('/')))
+
+    def get_parent_directory(self, path):
+        normalized = self.normalize_path(path)
+        parent = '/'.join(normalized.split('/')[:-1])
+        return parent if parent else '/'
 
     def delete_file(self, shared_folder_name, file_path):
         try:
