@@ -14,21 +14,10 @@ def list_models(models_path):
     models = [f.stem for f in models_path.glob('*.bin')]
     return models
 
-def enhance_image(input_data, output_path, model='realesr-animevideov3-x4', scale=2, fmt='png'):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{fmt}') as temp_input:
-        if isinstance(input_data, bytes):
-            temp_input.write(input_data)
-        elif isinstance(input_data, BytesIO):
-            temp_input.write(input_data.getvalue())
-        else:
-            with open(input_data, 'rb') as f:
-                temp_input.write(f.read())
-        temp_input_path = temp_input.name
-
-    executable_path = Path(output_path).parent.parent / 'realesrgan-ncnn-vulkan'
+def enhance_image(executable_path, input_path, output_path, model='realesr-animevideov3-x4', scale=2, fmt='png'):
     command = [
         str(executable_path),
-        '-i', temp_input_path,
+        '-i', input_path,
         '-o', output_path,
         '-n', model,
         '-s', str(scale),
@@ -36,8 +25,8 @@ def enhance_image(input_data, output_path, model='realesr-animevideov3-x4', scal
     ]
     try:
         subprocess.run(command, check=True)
-    finally:
-        os.unlink(temp_input_path)
+    except ValueError as e:
+        print(e)
 
 def enhance_anime_video(input_video, output_video, model='realesr-animevideov3-x2', scale=2):
     tmp_frames = 'tmp_frames'

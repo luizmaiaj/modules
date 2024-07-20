@@ -43,15 +43,24 @@ class Nas:
     def connect(self):
         try:
             self.conn = SMBConnection(self.nas_username, self.nas_password, 'local_machine', 'remote_machine', use_ntlm_v2=True)
-            assert self.conn.connect(self.nas_ip, 139)
+            if self.conn.connect(self.nas_ip, 139):
+                return True
+            else:
+                print("Failed to establish connection")
+                return False
         except ValueError as e:
-            print(e)
+            print(f"Error connecting to NAS: {e}")
+            return False
 
     def disconnect(self):
+        if self.conn is None:
+            return True  # Already disconnected
         try:
             self.conn.close()
+            return True
         except ValueError as e:
-            print(e)
+            print(f"Error disconnecting from NAS: {e}")
+            return False
         finally:
             self.conn = None
 
@@ -303,6 +312,28 @@ class Nas:
                 'creation_date': file.create_time,
                 'size': file.file_size
             }
+
+    def get_file_info(self, shared_folder, file_path):
+        """
+        Get file information without calculating the hash.
+        
+        Args:
+            shared_folder (str): Name of the shared folder.
+            file_path (str): Path to the file.
+        
+        Returns:
+            dict: A dictionary containing file information (name, size, creation_date).
+        """
+        try:
+            file_obj = self.conn.getAttributes(shared_folder, file_path)
+            return {
+                'name': os.path.basename(file_path),
+                'size': file_obj.file_size,
+                'creation_date': file_obj.create_time
+            }
+        except Exception as e:
+            print(f"Error getting file info for {file_path}: {e}")
+            return None
 
     def load_db(self) -> bool:
 
