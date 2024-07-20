@@ -213,24 +213,40 @@ class Nas:
 
         self.disconnect()
 
-    def traverse_nas_folder(self, nas_share_name, nas_folder_path):
+    def traverse_nas_folder(self, nas_share_name, nas_folder_path, item_type='both', max_depth=None):
         """
-        Assumes that the connection is already alive
-        """
+        Traverse NAS folder and return list of files, folders, or both.
 
-        files_list = []
+        Args:
+            nas_share_name (str): Name of the NAS share.
+            nas_folder_path (str): Path to the folder to traverse.
+            item_type (str): Type of items to return ('files', 'folders', or 'both').
+            max_depth (int, optional): Maximum depth to traverse. None for unlimited.
+
+        Returns:
+            list: List of file/folder paths.
+        """
+        items_list = []
+        current_depth = nas_folder_path.count('/') if nas_folder_path != '/' else 0
+
+        if max_depth is not None and current_depth > max_depth:
+            return items_list
+
         try:
-            nas_files = self.conn.listPath(nas_share_name, nas_folder_path)
-            for file in nas_files:
-                if file.filename not in ['.', '..']:
-                    file_path = f"{nas_folder_path}/{file.filename}"
-                    if file.isDirectory:
-                        files_list.extend(self.traverse_nas_folder(nas_share_name, file_path))
-                    else:
-                        files_list.append(file_path)
+            nas_items = self.conn.listPath(nas_share_name, nas_folder_path)
+            for item in nas_items:
+                if item.filename not in ['.', '..']:
+                    item_path = os.path.join(nas_folder_path, item.filename)
+                    if item.isDirectory:
+                        if item_type in ['folders', 'both']:
+                            items_list.append(item_path)
+                        items_list.extend(self.traverse_nas_folder(nas_share_name, item_path, item_type, max_depth))
+                    elif item_type in ['files', 'both']:
+                        items_list.append(item_path)
         except Exception as e:
-            print(f"Error listing files in {nas_folder_path}: {e}")
-        return files_list
+            print(f"Error listing items in {nas_folder_path}: {e}")
+
+        return items_list
 
     def calculate_file_hash(self, nas_share_name, nas_file_path, file):
         """
