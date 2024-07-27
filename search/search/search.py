@@ -37,13 +37,13 @@ def search_image_duckduckgo(keywords, safesearch='off', max_results=10):
     results = ddgs.images(keywords, safesearch=safesearch, max_results=max_results)
     return results
 
-def search_text_google(query, api_key, cx, num_results=10, start=1, return_content=False):
+def search_text_google(query, api_key, cx, max_results=10, start=1, return_content=False):
     try:
         service = build("customsearch", "v1", developerKey=api_key)
         res = service.cse().list(
             q=query,
             cx=cx,
-            num=num_results,
+            num=max_results,
             start=start
         ).execute()
 
@@ -70,6 +70,16 @@ def search_text_duckduckgo(keywords, safesearch='off', max_results=10, return_co
         return urls
     
     return get_contents(urls)
+
+def combined_search(query, max_results):
+    google_results = search_text_google(query, API_KEY_GOOGLE, CX_GOOGLE, max_results=max_results, return_content=True)
+    duckduckgo_results = search_text_duckduckgo(query, max_results=max_results, return_content=True)
+    
+    combined_results = []
+    for result in google_results + duckduckgo_results:
+        combined_results.append({"content": result})
+    
+    return combined_results
 
 def get_contents(urls):
     contents = []

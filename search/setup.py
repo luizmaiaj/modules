@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='search',
-    version='0.1.11',
+    version='0.1.14',
     packages=find_packages(),
     install_requires=[
         'pillow',
@@ -12,7 +12,8 @@ setup(
         'python-dotenv',
         'beautifulsoup4',
         'lxml',
-        'html5lib'
+        'html5lib',
+        'validator-collection',
     ],
     author='Luiz Maia',
     author_email='search@luiz.be',
