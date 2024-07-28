@@ -116,7 +116,10 @@ def search_duckduckgo(keywords, safesearch='off', max_results=10, return_content
     
     return get_contents(urls)
 
-def search_searxng(query, max_results=10, return_content=False):
+def search_searxng(query, engines=None, max_results=10, return_content=False):
+    """
+    engines: comma separated list
+    """
     if not is_searxng_alive():
         print("SearXNG instance is not available or is rejecting requests.")
         return []
@@ -130,6 +133,9 @@ def search_searxng(query, max_results=10, return_content=False):
             'safesearch': 0,
             'format': 'json'
         }
+
+        if engines:
+            params['engines'] = engines
         
         # response = requests.get(SEARXNG_URL, params=params, headers=HEADERS)
         response = requests.get(SEARXNG_URL, params=params)
