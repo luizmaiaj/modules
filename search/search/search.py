@@ -11,12 +11,19 @@ import re
 
 import csv
 from urllib.parse import urljoin, urlparse
-from validator_collection import validators, checkers, errors
+from validator_collection import validators, errors
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_KEY_GOOGLE = os.getenv('API_KEY_GOOGLE')
 CX_GOOGLE = os.getenv('CX_GOOGLE')
 API_KEY_BING = os.getenv('API_KEY_BING')
+SEARXNG_URL = os.getenv('SEARXNG_URL')
+
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept': 'application/json',
+    'Referer': 'http://192.168.1.56:5147'
+}
 
 def search_image_google(query, api_key, cx, num_results=1):
     try:
@@ -37,7 +44,44 @@ def search_image_duckduckgo(keywords, safesearch='off', max_results=10):
     results = ddgs.images(keywords, safesearch=safesearch, max_results=max_results)
     return results
 
-def search_text_google(query, api_key, cx, max_results=10, start=1, return_content=False):
+def search_image_searxng(query, max_results=10):
+    if not is_searxng_alive():
+        print("SearXNG instance is not available or is rejecting requests.")
+        return []
+
+    try:
+        params = {
+            'q': query,
+            'format': 'json',
+            'engines': 'images',
+            'results': max_results
+        }
+        response = requests.get(SEARXNG_URL + '/search', params=params, headers=HEADERS)
+        response.raise_for_status()
+        results = response.json().get('results', [])
+
+        image_results = []
+        for result in results:
+            image_results.append({
+                'url': result.get('url'),
+                'thumbnail': result.get('thumbnail_src'),
+                'source': result.get('source'),
+                'title': result.get('title')
+            })
+
+        return image_results
+
+    except requests.HTTPError as e:
+        if e.response.status_code == 403:
+            print("SearXNG returned a 403 Forbidden error. The instance may be configured to reject certain types of requests.")
+        else:
+            print(f"HTTP error occurred while searching images on SearXNG: {e}")
+        return []
+    except requests.RequestException as e:
+        print(f"An error occurred while searching images on SearXNG: {e}")
+        return []
+
+def search_google(query, api_key, cx, max_results=10, start=1, return_content=False):
     try:
         service = build("customsearch", "v1", developerKey=api_key)
         res = service.cse().list(
@@ -60,7 +104,7 @@ def search_text_google(query, api_key, cx, max_results=10, start=1, return_conte
         print(f"An error occurred: {e}")
         return []
 
-def search_text_duckduckgo(keywords, safesearch='off', max_results=10, return_content=False):
+def search_duckduckgo(keywords, safesearch='off', max_results=10, return_content=False):
     ddgs = DDGS()
     results = ddgs.text(keywords, safesearch=safesearch, max_results=max_results)
 
@@ -71,15 +115,71 @@ def search_text_duckduckgo(keywords, safesearch='off', max_results=10, return_co
     
     return get_contents(urls)
 
+def search_searxng(query, max_results=10, return_content=False):
+    try:
+        params = {
+            'q': query,
+            'format': 'json',
+            'engines': 'general',
+            'results': str(max_results)
+        }
+        # response = requests.post(f"{SEARXNG_URL}search", data=params, headers=HEADERS)
+        response = requests.get(urljoin(SEARXNG_URL, 'search'), params=params, headers=HEADERS)
+        response.raise_for_status()
+        results = response.json().get('results', [])
+
+        urls = [result.get('url') for result in results]
+
+        if not return_content:
+            return urls
+        
+        return get_contents(urls)
+
+    except requests.HTTPError as e:
+        print(f"HTTP error occurred: {e}")
+        print(f"Response content: {e.response.content}")
+        return []
+    except requests.RequestException as e:
+        print(f"An error occurred while searching SearXNG: {e}")
+        return []
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return []
+
+
+def is_searxng_alive(timeout=5):
+    try:
+        response = requests.get(SEARXNG_URL, timeout=timeout, headers=HEADERS)
+        if response.status_code == 403:
+            print("SearXNG instance returned a 403 Forbidden error. Check your NAS and SearXNG configurations.")
+            return False
+        return response.status_code == 200
+    except requests.RequestException as e:
+        print(f"Error checking SearXNG availability: {e}")
+        return False
+
 def combined_search(query, max_results):
-    google_results = search_text_google(query, API_KEY_GOOGLE, CX_GOOGLE, max_results=max_results, return_content=True)
-    duckduckgo_results = search_text_duckduckgo(query, max_results=max_results, return_content=True)
-    
+    google_results = search_google(query, API_KEY_GOOGLE, CX_GOOGLE, max_results=max_results, return_content=True)
+    duckduckgo_results = search_duckduckgo(query, max_results=max_results, return_content=True)
+    searxng_results = search_searxng(query, max_results=max_results, return_content=True)
+
     combined_results = []
-    for result in google_results + duckduckgo_results:
+    for result in google_results + duckduckgo_results + searxng_results:
         combined_results.append({"content": result})
     
     return combined_results
+
+def combined_image_search(query, max_results):
+    google_results = search_image_google(query, API_KEY_GOOGLE, CX_GOOGLE, num_results=max_results)
+    duckduckgo_results = list(search_image_duckduckgo(query, max_results=max_results))
+    
+    searxng_results = []
+    if is_searxng_alive():
+        searxng_results = search_image_searxng(query, max_results=max_results)
+    else:
+        print("SearXNG instance is not available. Proceeding with other search engines.")
+    
+    return google_results + duckduckgo_results + searxng_results
 
 def get_contents(urls):
     contents = []

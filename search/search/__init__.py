@@ -1,3 +1,1 @@
-# __init__.py
-
-from .search import search_text_duckduckgo, search_text_google, generate_folder_name, search_image_duckduckgo, search_image_google, extract_links_to_csv, combined_search, validate_url
+from .search import search_duckduckgo, search_google, search_searxng, generate_folder_name, search_image_duckduckgo, search_image_google, search_image_searxng, extract_links_to_csv, combined_search, combined_image_search, validate_url
