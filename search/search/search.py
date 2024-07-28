@@ -1,18 +1,18 @@
-import os
-from PIL import Image
-import requests
-from io import BytesIO
-
-from googleapiclient.discovery import build
-from duckduckgo_search import DDGS
-from bs4 import BeautifulSoup
-import hashlib
-import re
-
 import csv
-from urllib.parse import urljoin, urlparse
-from validator_collection import validators, errors
+import hashlib
+import json
+import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from io import BytesIO
+from urllib.parse import urljoin, urlparse
+
+import requests
+from bs4 import BeautifulSoup
+from duckduckgo_search import DDGS
+from googleapiclient.discovery import build
+from PIL import Image
+from validator_collection import errors, validators
 
 API_KEY_GOOGLE = os.getenv('API_KEY_GOOGLE')
 CX_GOOGLE = os.getenv('CX_GOOGLE')
@@ -127,29 +127,22 @@ def search_searxng(query, max_results=10, return_content=False):
             'category_general': 1,
             'language': 'all',
             'time_range': '',
-            'safesearch': 0
+            'safesearch': 0,
+            'format': 'json'
         }
         
         # response = requests.get(SEARXNG_URL, params=params, headers=HEADERS)
         response = requests.get(SEARXNG_URL, params=params)
         response.raise_for_status()
         
-        print(response.content)
-
-        # Parse HTML content
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # Parse JSON response
+        data = response.json()
         
-        # Extract search results
-        result_elements = soup.find_all('article', class_='result')
-        urls = []
-        for element in result_elements[:max_results]:
-            url_wrapper = element.find('a', class_='url_wrapper')
-            if url_wrapper and 'href' in url_wrapper.attrs:
-                urls.append(url_wrapper['href'])
+        # Extract URLs from the results
+        urls = [result['url'] for result in data.get('results', [])[:max_results]]
         
         if not return_content:
             return urls
-
         return get_contents(urls)
     
     except requests.HTTPError as e:
@@ -158,6 +151,10 @@ def search_searxng(query, max_results=10, return_content=False):
         return []
     except requests.RequestException as e:
         print(f"An error occurred while searching SearXNG: {e}")
+        return []
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON response: {e}")
+        print(f"Response content: {response.text}")
         return []
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
@@ -175,10 +172,10 @@ def is_searxng_alive(timeout=5):
         print(f"Error checking SearXNG availability: {e}")
         return False
 
-def combined_search(query, max_results):
-    google_results = search_google(query, API_KEY_GOOGLE, CX_GOOGLE, max_results=max_results, return_content=True)
-    duckduckgo_results = search_duckduckgo(query, max_results=max_results, return_content=True)
-    searxng_results = search_searxng(query, max_results=max_results, return_content=True)
+def combined_search(query, max_results, return_content=True):
+    google_results = search_google(query, API_KEY_GOOGLE, CX_GOOGLE, max_results=max_results, return_content=return_content)
+    duckduckgo_results = search_duckduckgo(query, max_results=max_results, return_content=return_content)
+    searxng_results = search_searxng(query, max_results=max_results, return_content=return_content)
 
     combined_results = []
     for result in google_results + duckduckgo_results + searxng_results:
