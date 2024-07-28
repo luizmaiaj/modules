@@ -18,7 +18,6 @@ API_KEY_GOOGLE = os.getenv('API_KEY_GOOGLE')
 CX_GOOGLE = os.getenv('CX_GOOGLE')
 API_KEY_BING = os.getenv('API_KEY_BING')
 SEARXNG_URL = os.getenv('SEARXNG_URL')
-SEARXNG_API_KEY = os.getenv('SEARXNG_API_KEY')
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -121,28 +120,38 @@ def search_searxng(query, max_results=10, return_content=False):
     if not is_searxng_alive():
         print("SearXNG instance is not available or is rejecting requests.")
         return []
-
+    
     try:
         params = {
             'q': query,
             'category_general': 1,
             'language': 'all',
             'time_range': '',
-            'safesearch': 0,
-            'theme': 'simple'
+            'safesearch': 0
         }
-
-        response = requests.get(SEARXNG_URL, params=params, headers=HEADERS)
+        
+        # response = requests.get(SEARXNG_URL, params=params, headers=HEADERS)
+        response = requests.get(SEARXNG_URL, params=params)
         response.raise_for_status()
-        results = response.json().get('results', [])
+        
+        print(response.content)
 
-        urls = [result.get('url') for result in results]
-
+        # Parse HTML content
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract search results
+        result_elements = soup.find_all('article', class_='result')
+        urls = []
+        for element in result_elements[:max_results]:
+            url_wrapper = element.find('a', class_='url_wrapper')
+            if url_wrapper and 'href' in url_wrapper.attrs:
+                urls.append(url_wrapper['href'])
+        
         if not return_content:
             return urls
 
         return get_contents(urls)
-
+    
     except requests.HTTPError as e:
         print(f"HTTP error occurred: {e}")
         print(f"Response content: {e.response.content}")
@@ -150,8 +159,9 @@ def search_searxng(query, max_results=10, return_content=False):
     except requests.RequestException as e:
         print(f"An error occurred while searching SearXNG: {e}")
         return []
-    except ValueError as e:
+    except Exception as e:
         print(f"An unexpected error occurred: {e}")
+        print(f"Error type: {type(e)}")
         return []
 
 def is_searxng_alive(timeout=5):

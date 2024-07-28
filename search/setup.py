@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='search',
-    version='0.1.21',
+    version='0.1.26',
     packages=find_packages(),
     install_requires=[
         'pillow',
