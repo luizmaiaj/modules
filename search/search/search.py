@@ -18,11 +18,10 @@ API_KEY_GOOGLE = os.getenv('API_KEY_GOOGLE')
 CX_GOOGLE = os.getenv('CX_GOOGLE')
 API_KEY_BING = os.getenv('API_KEY_BING')
 SEARXNG_URL = os.getenv('SEARXNG_URL')
+SEARXNG_API_KEY = os.getenv('SEARXNG_API_KEY')
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'application/json',
-    'Referer': 'http://192.168.1.56:5147'
 }
 
 def search_image_google(query, api_key, cx, num_results=1):
@@ -56,7 +55,10 @@ def search_image_searxng(query, max_results=10):
             'engines': 'images',
             'results': max_results
         }
-        response = requests.get(SEARXNG_URL + '/search', params=params, headers=HEADERS)
+
+        url = urljoin(SEARXNG_URL, 'search')
+
+        response = requests.get(url, params=params, headers=HEADERS)
         response.raise_for_status()
         results = response.json().get('results', [])
 
@@ -116,15 +118,21 @@ def search_duckduckgo(keywords, safesearch='off', max_results=10, return_content
     return get_contents(urls)
 
 def search_searxng(query, max_results=10, return_content=False):
+    if not is_searxng_alive():
+        print("SearXNG instance is not available or is rejecting requests.")
+        return []
+
     try:
         params = {
             'q': query,
-            'format': 'json',
-            'engines': 'general',
-            'results': str(max_results)
+            'category_general': 1,
+            'language': 'all',
+            'time_range': '',
+            'safesearch': 0,
+            'theme': 'simple'
         }
-        # response = requests.post(f"{SEARXNG_URL}search", data=params, headers=HEADERS)
-        response = requests.get(urljoin(SEARXNG_URL, 'search'), params=params, headers=HEADERS)
+
+        response = requests.get(SEARXNG_URL, params=params, headers=HEADERS)
         response.raise_for_status()
         results = response.json().get('results', [])
 
@@ -132,7 +140,7 @@ def search_searxng(query, max_results=10, return_content=False):
 
         if not return_content:
             return urls
-        
+
         return get_contents(urls)
 
     except requests.HTTPError as e:
@@ -142,19 +150,18 @@ def search_searxng(query, max_results=10, return_content=False):
     except requests.RequestException as e:
         print(f"An error occurred while searching SearXNG: {e}")
         return []
-    except Exception as e:
+    except ValueError as e:
         print(f"An unexpected error occurred: {e}")
         return []
 
-
 def is_searxng_alive(timeout=5):
     try:
-        response = requests.get(SEARXNG_URL, timeout=timeout, headers=HEADERS)
+        response = requests.get(SEARXNG_URL, timeout=timeout)
         if response.status_code == 403:
             print("SearXNG instance returned a 403 Forbidden error. Check your NAS and SearXNG configurations.")
             return False
         return response.status_code == 200
-    except requests.RequestException as e:
+    except ValueError as e:
         print(f"Error checking SearXNG availability: {e}")
         return False
 
