@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 import validators
 
 from settings import Settings, REQUEST_TIMEOUT, ADO_PAGE_SIZE
-from ocr import perform_mem_ocr
+# from ocr import perform_mem_ocr
 from logger import Logger
 
 @dataclass
@@ -465,18 +465,18 @@ class Ado:
 
         image_pil_files = []
 
-        for url, image_file in zip(image_info['urls'], image_files):
-            # Perform OCR on the image in memory
-            ocr_text = perform_mem_ocr(image_file.getvalue())
+        # for url, image_file in zip(image_info['urls'], image_files):
+        #     # Perform OCR on the image in memory
+        #     ocr_text = perform_mem_ocr(image_file.getvalue())
 
-            if ocr_text:
+        #     if ocr_text:
 
-                ocr_text = "\n<<<BEGIN_IMAGE_TEXT>>>\n" + ocr_text + "\n<<<END_IMAGE_TEXT>>>\n"
+        #         ocr_text = "\n<<<BEGIN_IMAGE_TEXT>>>\n" + ocr_text + "\n<<<END_IMAGE_TEXT>>>\n"
 
-                # Replace the image URL in the original text with the OCR text
-                no_html = no_html.replace(url, ocr_text)
+        #         # Replace the image URL in the original text with the OCR text
+        #         no_html = no_html.replace(url, ocr_text)
 
-            image_pil_files.append(Image.open(image_file))
+        #     image_pil_files.append(Image.open(image_file))
 
         return no_html, image_pil_files
 
