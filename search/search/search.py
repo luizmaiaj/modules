@@ -82,6 +82,125 @@ def search_image_searxng(query, max_results=10):
         print(f"An error occurred while searching images on SearXNG: {e}")
         return []
 
+def search_image_yandex(query, max_results=10):
+    base_url = "https://yandex.com/images/search"
+    params = {
+        "text": query,
+        "nomisspell": 1,
+        "noreask": 1,
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.serp-item')[:max_results]:
+            image_data = json.loads(item['data-bem'])
+            if 'img_href' in image_data['serp-item']:
+                image_url = image_data['serp-item']['img_href']
+                results.append({
+                    'url': image_url,
+                    'thumbnail': image_url,
+                    'source': 'Yandex',
+                    'title': image_data['serp-item'].get('snippet', {}).get('title', '')
+                })
+
+        return results
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching images on Yandex: {e}")
+        return []
+
+def search_image_bing(query, max_results=10):
+    base_url = "https://www.bing.com/images/search"
+    params = {
+        "q": query,
+        "qft": "+filterui:photo-photo",
+        "form": "IRFLTR",
+        "first": 1
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.iusc')[:max_results]:
+            image_data = json.loads(item['m'])
+            results.append({
+                'url': image_data['murl'],
+                'thumbnail': image_data['turl'],
+                'source': 'Bing',
+                'title': image_data['t']
+            })
+
+        return results
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching images on Bing: {e}")
+        return []
+
+def search_image_brave(query, max_results=10):
+    base_url = "https://search.brave.com/images"
+    params = {
+        "q": query,
+        "source": "web"
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.image-cont')[:max_results]:
+            img = item.select_one('img')
+            if img and 'src' in img.attrs:
+                results.append({
+                    'url': img['src'],
+                    'thumbnail': img['src'],
+                    'source': 'Brave',
+                    'title': img.get('alt', '')
+                })
+
+        return results
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching images on Brave: {e}")
+        return []
+
+def search_image_qwant(query, max_results=10):
+    base_url = "https://www.qwant.com/"
+    params = {
+        "q": query,
+        "t": "images"
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.image__result')[:max_results]:
+            img = item.select_one('img')
+            if img and 'src' in img.attrs:
+                results.append({
+                    'url': img['src'],
+                    'thumbnail': img['src'],
+                    'source': 'Qwant',
+                    'title': img.get('alt', '')
+                })
+
+        return results
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching images on Qwant: {e}")
+        return []
+
 def search_google(query, api_key, cx, max_results=10, start=1, return_content=False):
     try:
         service = build("customsearch", "v1", developerKey=api_key)
@@ -123,7 +242,7 @@ def search_searxng(query, engines=None, max_results=10, return_content=False):
     if not is_searxng_alive():
         print("SearXNG instance is not available or is rejecting requests.")
         return []
-    
+
     try:
         params = {
             'q': query,
@@ -136,21 +255,21 @@ def search_searxng(query, engines=None, max_results=10, return_content=False):
 
         if engines:
             params['engines'] = engines
-        
+
         # response = requests.get(SEARXNG_URL, params=params, headers=HEADERS)
         response = requests.get(SEARXNG_URL, params=params)
         response.raise_for_status()
-        
+
         # Parse JSON response
         data = response.json()
-        
+
         # Extract URLs from the results
         urls = [result['url'] for result in data.get('results', [])[:max_results]]
-        
+
         if not return_content:
             return urls
         return get_contents(urls)
-    
+
     except requests.HTTPError as e:
         print(f"HTTP error occurred: {e}")
         print(f"Response content: {e.response.content}")
@@ -165,6 +284,117 @@ def search_searxng(query, engines=None, max_results=10, return_content=False):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         print(f"Error type: {type(e)}")
+        return []
+
+def search_yandex(query, max_results=10, return_content=False):
+    base_url = "https://yandex.com/search/"
+    params = {
+        "text": query,
+        "lr": "21411",  # English results
+        "p": 0  # Start from the first page
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.serp-item')[:max_results]:
+            link = item.select_one('.link')
+            if link and 'href' in link.attrs:
+                url = link['href']
+                results.append(url)
+
+        if not return_content:
+            return results
+
+        return get_contents(results)
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching Yandex: {e}")
+        return []
+
+def search_bing(query, max_results=10, return_content=False):
+    base_url = "https://www.bing.com/search"
+    params = {
+        "q": query,
+        "count": max_results
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.b_algo h2 a')[:max_results]:
+            if 'href' in item.attrs:
+                url = item['href']
+                results.append(url)
+
+        if not return_content:
+            return results
+
+        return get_contents(results)
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching Bing: {e}")
+        return []
+
+def search_brave(query, max_results=10, return_content=False):
+    base_url = "https://search.brave.com/search"
+    params = {
+        "q": query,
+        "source": "web"
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.snippet')[:max_results]:
+            link = item.select_one('.snippet-title')
+            if link and 'href' in link.attrs:
+                url = link['href']
+                results.append(url)
+
+        if not return_content:
+            return results
+
+        return get_contents(results)
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching Brave: {e}")
+        return []
+
+def search_qwant(query, max_results=10, return_content=False):
+    base_url = "https://www.qwant.com/"
+    params = {
+        "q": query,
+        "t": "web"
+    }
+
+    try:
+        response = requests.get(base_url, params=params, headers=HEADERS)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        for item in soup.select('.result__url')[:max_results]:
+            if 'href' in item.attrs:
+                url = item['href']
+                results.append(url)
+
+        if not return_content:
+            return results
+
+        return get_contents(results)
+
+    except requests.RequestException as e:
+        print(f"An error occurred while searching Qwant: {e}")
         return []
 
 def is_searxng_alive(timeout=5):
@@ -182,24 +412,33 @@ def combined_search(query, max_results, return_content=True):
     google_results = search_google(query, API_KEY_GOOGLE, CX_GOOGLE, max_results=max_results, return_content=return_content)
     duckduckgo_results = search_duckduckgo(query, max_results=max_results, return_content=return_content)
     searxng_results = search_searxng(query, max_results=max_results, return_content=return_content)
+    yandex_results = search_yandex(query, max_results=max_results, return_content=return_content)
+    bing_results = search_bing(query, max_results=max_results, return_content=return_content)
+    brave_results = search_brave(query, max_results=max_results, return_content=return_content)
+    qwant_results = search_qwant(query, max_results=max_results, return_content=return_content)
 
     combined_results = []
-    for result in google_results + duckduckgo_results + searxng_results:
+    for result in google_results + duckduckgo_results + searxng_results + yandex_results + bing_results + brave_results + qwant_results:
         combined_results.append({"content": result})
-    
+
     return combined_results
 
 def combined_image_search(query, max_results):
     google_results = search_image_google(query, API_KEY_GOOGLE, CX_GOOGLE, num_results=max_results)
     duckduckgo_results = list(search_image_duckduckgo(query, max_results=max_results))
-    
+
     searxng_results = []
     if is_searxng_alive():
         searxng_results = search_image_searxng(query, max_results=max_results)
     else:
         print("SearXNG instance is not available. Proceeding with other search engines.")
-    
-    return google_results + duckduckgo_results + searxng_results
+
+    yandex_results = search_image_yandex(query, max_results=max_results)
+    bing_results = search_image_bing(query, max_results=max_results)
+    brave_results = search_image_brave(query, max_results=max_results)
+    qwant_results = search_image_qwant(query, max_results=max_results)
+
+    return google_results + duckduckgo_results + searxng_results + yandex_results + bing_results + brave_results + qwant_results
 
 def get_contents(urls):
     contents = []
